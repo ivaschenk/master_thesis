@@ -3,7 +3,7 @@
 
 __all__ = [
             'SPoSE',
-            'l1_regularization',
+            # 'l1_regularization',
             ]
 
 import re
@@ -36,9 +36,9 @@ class SPoSE(nn.Module):
             if isinstance(m, nn.Linear):
                 m.weight.data.normal_(mean, std)
 
-def l1_regularization(model) -> torch.Tensor:
-    l1_reg = torch.tensor(0., requires_grad=True)
-    for n, p in model.named_parameters():
-        if re.search(r'weight', n):
-            l1_reg = l1_reg + torch.norm(p, 1)
-    return l1_reg
+# def l1_regularization(model) -> torch.Tensor:
+#     l1_reg = torch.tensor(0., requires_grad=True)
+#     for n, p in model.named_parameters():
+#         if re.search(r'weight', n):
+#             l1_reg = l1_reg + torch.norm(p, 1)
+#     return l1_reg

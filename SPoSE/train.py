@@ -25,7 +25,7 @@ from collections import defaultdict
 from scipy.stats import linregress
 from torch.optim import Adam, AdamW
 
-from plotting import *
+# from plotting import *
 from models.model import *
 
 os.environ['PYTHONIOENCODING']='UTF-8'
@@ -225,7 +225,7 @@ def run(
     for epoch in range(start, epochs):
         model.train()
         batch_llikelihoods = torch.zeros(len(train_batches))
-        batch_closses = torch.zeros(len(train_batches))
+        # batch_closses = torch.zeros(len(train_batches))
         batch_losses_train = torch.zeros(len(train_batches))
         batch_accs_train = torch.zeros(len(train_batches))
         for i, batch in enumerate(train_batches):
@@ -234,26 +234,26 @@ def run(
             logits = model(batch)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
             c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric) #TODO
-            l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
+            # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc.weight
             pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
-            complexity_loss = (lmbda/n_items) * l1_pen
-            loss = c_entropy + 0.01 * pos_pen + complexity_loss
+            # complexity_loss = (lmbda/n_items) * l1_pen
+            loss = c_entropy + 0.01 * pos_pen #+ complexity_loss
             loss.backward()
             optim.step()
             batch_losses_train[i] += loss.item()
             batch_llikelihoods[i] += c_entropy.item()
-            batch_closses[i] += complexity_loss.item()
+            # batch_closses[i] += complexity_loss.item()
             batch_accs_train[i] += utils.choice_accuracy(anchor, positive, negative, task, distance_metric)
             iter += 1
 
         avg_llikelihood = torch.mean(batch_llikelihoods).item()
-        avg_closs = torch.mean(batch_closses).item()
+        # avg_closs = torch.mean(batch_closses).item()
         avg_train_loss = torch.mean(batch_losses_train).item()
         avg_train_acc = torch.mean(batch_accs_train).item()
 
         loglikelihoods.append(avg_llikelihood)
-        complexity_losses.append(avg_closs)
+        # complexity_losses.append(avg_closs)
         train_losses.append(avg_train_loss)
         train_accs.append(avg_train_acc)
 
@@ -316,15 +316,15 @@ def run(
     results = {'epoch': len(train_accs), 'train_acc': train_accs[-1], 'val_acc': val_accs[-1], 'val_loss': val_losses[-1]}
     logger.info(f'\nOptimization finished after {epoch+1} epochs for lambda: {lmbda}\n')
 
-    logger.info(f'\nPlotting number of non-negative dimensions as a function of time for lambda: {lmbda}\n')
-    plot_nneg_dims_over_time(plots_dir=plots_dir, nneg_d_over_time=nneg_d_over_time)
+    # logger.info(f'\nPlotting number of non-negative dimensions as a function of time for lambda: {lmbda}\n')
+    # plot_nneg_dims_over_time(plots_dir=plots_dir, nneg_d_over_time=nneg_d_over_time)
 
-    logger.info(f'\nPlotting model performances over time for lambda: {lmbda}')
-    #plot train and validation performance alongside each other to examine a potential overfit to the training data
-    plot_single_performance(plots_dir=plots_dir, val_accs=val_accs, train_accs=train_accs)
-    logger.info(f'\nPlotting losses over time for lambda: {lmbda}')
-    #plot both log-likelihood of the data (i.e., cross-entropy loss) and complexity loss (i.e., l1-norm in DSPoSE and KLD in VSPoSE)
-    plot_complexities_and_loglikelihoods(plots_dir=plots_dir, loglikelihoods=loglikelihoods, complexity_losses=complexity_losses)
+    # logger.info(f'\nPlotting model performances over time for lambda: {lmbda}')
+    # #plot train and validation performance alongside each other to examine a potential overfit to the training data
+    # plot_single_performance(plots_dir=plots_dir, val_accs=val_accs, train_accs=train_accs)
+    # logger.info(f'\nPlotting losses over time for lambda: {lmbda}')
+    # #plot both log-likelihood of the data (i.e., cross-entropy loss) and complexity loss (i.e., l1-norm in DSPoSE and KLD in VSPoSE)
+    # plot_complexities_and_loglikelihoods(plots_dir=plots_dir, loglikelihoods=loglikelihoods, complexity_losses=complexity_losses)
 
     PATH = os.path.join(results_dir, 'results.json')
     with open(PATH, 'w') as results_file:
