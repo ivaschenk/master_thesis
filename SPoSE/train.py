@@ -29,53 +29,54 @@ from plotting import *
 from models.model import *
 
 os.environ['PYTHONIOENCODING']='UTF-8'
-os.environ['CUDA_LAUNCH_BLOCKING']=str(1)
+# os.environ['CUDA_LAUNCH_BLOCKING']=str(1) 
 
+# see README for explanations. Options for hyperparameters to train the SPoSE model
 def parseargs():
     parser = argparse.ArgumentParser()
     def aa(*args, **kwargs):
         parser.add_argument(*args, **kwargs)
-    aa('--task', type=str, default='odd_one_out',
-        choices=['odd_one_out', 'similarity_task'])
-    aa('--modality', type=str, default='behavioral/',
-        #choices=['behavioral/', 'text/', 'visual/', 'neural/'],
+    aa('--task', type=str, default='odd_one_out',       #odd_one_out
+        choices=['odd_one_out', 'similarity_task'])     
+    aa('--modality', type=str, default='behavioral/',   #behavioral? TODO
+        #choices=['behavioral/', 'text/', 'visual/', 'neural/'],       
         help='define for which modality SPoSE should be perform specified task')
-    aa('--triplets_dir', type=str,
-        help='directory from where to load triplets')
-    aa('--results_dir', type=str, default='./results/',
+    aa('--triplets_dir', type=str,                      #'data/trainset.npy' 
+        help='directory from where to load triplets')       
+    aa('--results_dir', type=str, default='./results/', #not necessary
         help='optional specification of results directory (if not provided will resort to ./results/modality/lambda/rnd_seed/)')
-    aa('--plots_dir', type=str, default='./plots/',
+    aa('--plots_dir', type=str, default='./plots/',     #not necessary
         help='optional specification of directory for plots (if not provided will resort to ./plots/modality/lambda/rnd_seed/)')
-    aa('--learning_rate', type=float, default=0.001,
+    aa('--learning_rate', type=float, default=0.001,    #hyperparameter TODO
         help='learning rate to be used in optimizer')
-    aa('--lmbda', type=float,
+    aa('--lmbda', type=float,                           #hyperparameter niet relevant want l1 verwijderen
         help='lambda value determines weight of l1-regularization')
-    aa('--temperature', type=float, default=1.,
+    aa('--temperature', type=float, default=1.,         #? TODO
         help='softmax temperature (beta param) for choice randomness')
-    aa('--embed_dim', metavar='D', type=int, default=90,
-        help='dimensionality of the embedding matrix')
-    aa('--batch_size', metavar='B', type=int, default=100,
+    aa('--embed_dim', metavar='D', type=int, default=90, #hyperparameter TODO probably lower
+        help='dimensionality of the embedding matrix') 
+    aa('--batch_size', metavar='B', type=int, default=100, #can adjust when running into issues
         choices=[16, 25, 32, 50, 64, 100, 128, 150, 200, 256],
         help='number of triplets in each mini-batch')
-    aa('--epochs', metavar='T', type=int, default=500,
+    aa('--epochs', metavar='T', type=int, default=500,  #hyperparameter TODO for overfitting, probably lower
         help='maximum number of epochs to optimize SPoSE model for')
-    aa('--window_size', type=int, default=50,
+    aa('--window_size', type=int, default=50,           #hyperparameter, not relevant
         help='window size to be used for checking convergence criterion with linear regression')
-    aa('--steps', type=int, default=10,
+    aa('--steps', type=int, default=10,                 #not necessary
         help='save model parameters and create checkpoints every <steps> epochs')
-    aa('--sampling_method', type=str, default='normal',
+    aa('--sampling_method', type=str, default='normal', #not necessary, else adjust --p
         choices=['normal', 'soft'],
         help='whether random sampling of the entire training set or soft sampling of some fraction of the training set will be performed during each epoch')
-    aa('--p', type=float, default=None,
+    aa('--p', type=float, default=None,                 #only when soft
         choices=[None, 0.5, 0.6, 0.7, 0.8, 0.9],
         help='this argument is only necessary for soft sampling. specifies the fraction of *train* to be sampled during an epoch')
-    aa('--resume', action='store_true',
+    aa('--resume', action='store_true',                 #can adjust during training
         help='whether to resume training at last checkpoint; if not set training will restart')
-    aa('--device', type=str, default='cpu',
+    aa('--device', type=str, default='cpu',             #GoogleColab
         choices=['cpu', 'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3', 'cuda:4', 'cuda:5', 'cuda:6', 'cuda:7'])
     aa('--rnd_seed', type=int, default=42,
         help='random seed for reproducibility')
-    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean'], help='distance metric')
+    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean'], help='distance metric') #TODO!!!! Euclidean space -> hyperbolic space
     aa('--early_stopping', action='store_true', help='train until convergence')
     aa('--num_threads', type=int, default=20, help='number of threads used by PyTorch multiprocessing')
     args = parser.parse_args()
@@ -232,7 +233,7 @@ def run(
             batch = batch.to(device)
             logits = model(batch)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
-            c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric)
+            c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric) #TODO
             l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc.weight
             pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix

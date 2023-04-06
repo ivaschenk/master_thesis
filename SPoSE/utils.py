@@ -232,6 +232,7 @@ def softmax(sims:tuple, t:torch.Tensor) -> torch.Tensor:
 def cross_entropy_loss(sims:tuple, t:torch.Tensor) -> torch.Tensor:
     return torch.mean(-torch.log(softmax(sims, t)))
 
+# TODO hyperbolic
 def compute_similarities(anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, distance_metric:str = 'dot') -> Tuple:
     if distance_metric == 'dot':
         pos_sim = torch.sum(anchor * positive, dim=1)
@@ -432,7 +433,7 @@ def test(
             else:
                 logits = model(batch)
                 anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
-                similarities = compute_similarities(anchor, positive, negative, task, distance_metric)
+                similarities = compute_similarities(anchor, positive, negative, task, distance_metric) #TODO
                 #stacked_sims = torch.stack(similarities, dim=-1)
                 #batch_probas = F.softmax(logsumexp_(stacked_sims), dim=1)
                 batch_probas = F.softmax(torch.stack(similarities, dim=-1), dim=1)
@@ -473,7 +474,7 @@ def validation(
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
 
             if sampling:
-                similarities = compute_similarities(anchor, positive, negative, task, distance_metric)
+                similarities = compute_similarities(anchor, positive, negative, task, distance_metric) #TODO
                 probas = F.softmax(torch.stack(similarities, dim=-1), dim=1).numpy()
                 probas = probas[:, ::-1]
                 human_choices = batch.nonzero(as_tuple=True)[-1].view(batch_size, -1).numpy()
