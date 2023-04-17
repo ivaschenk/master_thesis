@@ -233,7 +233,7 @@ def cross_entropy_loss(sims:tuple, t:torch.Tensor) -> torch.Tensor:
     return torch.mean(-torch.log(softmax(sims, t)))
 
 # TODO hyperbolic
-def compute_similarities(anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, distance_metric:str = 'dot') -> Tuple:
+def compute_similarities(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, distance_metric:str = 'dot') -> Tuple:
     if distance_metric == 'dot':
         pos_sim = torch.sum(anchor * positive, dim=1)
         neg_sim = torch.sum(anchor * negative, dim=1)
@@ -251,23 +251,32 @@ def compute_similarities(anchor:torch.Tensor, positive:torch.Tensor, negative:to
             return pos_sim, neg_sim, neg_sim_2
         else:
             return pos_sim, neg_sim
-
+    elif distance_metric == 'hyperbolic':
+        pos_sim = -1*hyperbolic.dist(anchor, positive)
+        neg_sim = -1*hyperbolic.dist(anchor, negative)
+        
+        if method == 'odd_one_out':
+            neg_sim_2 = -1*hyperbolic.dist(positive,negative)
+            return pos_sim, neg_sim, neg_sim_2
+        else:
+            return pos_sim, neg_sim
+        
 def accuracy_(probas:torch.Tensor) -> float:
     choices = np.where(probas.mean(axis=1) == probas.max(axis=1), -1, np.argmax(probas, axis=1))
     acc = np.where(choices == 0, 1, 0).mean()
     return acc
 
-def choice_accuracy(anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, distance_metric: str = 'dot') -> float:
-    similarities  = compute_similarities(anchor, positive, negative, method, distance_metric)
+def choice_accuracy(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, distance_metric: str = 'dot') -> float:
+    similarities  = compute_similarities(hyperbolic, anchor, positive, negative, method, distance_metric)
     probas = F.softmax(torch.stack(similarities, dim=-1), dim=1).detach().cpu().numpy()
     return accuracy_(probas)
 
-def trinomial_probs(anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, t:torch.Tensor, distance_metric: str = 'dot') -> torch.Tensor:
-    sims = compute_similarities(anchor, positive, negative, method, distance_metric)
+def trinomial_probs(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, t:torch.Tensor, distance_metric: str = 'dot') -> torch.Tensor:
+    sims = compute_similarities(hyperbolic, anchor, positive, negative, method, distance_metric)
     return softmax(sims, t)
 
-def trinomial_loss(anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, t:torch.Tensor, distance_metric: str = 'dot') -> torch.Tensor:
-    sims = compute_similarities(anchor, positive, negative, method, distance_metric)
+def trinomial_loss(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor, negative:torch.Tensor, method:str, t:torch.Tensor, distance_metric: str = 'dot') -> torch.Tensor:
+    sims = compute_similarities(hyperbolic, anchor, positive, negative, method, distance_metric)
     return cross_entropy_loss(sims, t)
 
 def kld_online(mu_1:torch.Tensor, l_1:torch.Tensor, mu_2:torch.Tensor, l_2:torch.Tensor) -> torch.Tensor:
@@ -409,6 +418,7 @@ def logsumexp_(logits:torch.Tensor) -> torch.Tensor:
     return torch.exp(logits - torch.logsumexp(logits, dim=1)[..., None])
 
 def test(
+        hyperbolic,
         model,
         test_batches,
         version:str,
@@ -433,11 +443,11 @@ def test(
             else:
                 logits = model(batch)
                 anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
-                similarities = compute_similarities(anchor, positive, negative, task, distance_metric) #TODO
+                similarities = compute_similarities(hyperbolic, anchor, positive, negative, task, distance_metric) #TODO
                 #stacked_sims = torch.stack(similarities, dim=-1)
                 #batch_probas = F.softmax(logsumexp_(stacked_sims), dim=1)
                 batch_probas = F.softmax(torch.stack(similarities, dim=-1), dim=1)
-                test_acc = choice_accuracy(anchor, positive, negative, task)
+                test_acc = choice_accuracy(hyperbolic, anchor, positive, negative, task)
 
             probas[j*batch_size:(j+1)*batch_size] += batch_probas
             batch_accs[j] += test_acc
@@ -451,6 +461,7 @@ def test(
     return test_acc, probas, model_pmfs
 
 def validation(
+                hyperbolic,
                 model,
                 val_batches,
                 task:str,
@@ -474,15 +485,15 @@ def validation(
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
 
             if sampling:
-                similarities = compute_similarities(anchor, positive, negative, task, distance_metric) #TODO
+                similarities = compute_similarities(hyperbolic, anchor, positive, negative, task, distance_metric) #TODO
                 probas = F.softmax(torch.stack(similarities, dim=-1), dim=1).numpy()
                 probas = probas[:, ::-1]
                 human_choices = batch.nonzero(as_tuple=True)[-1].view(batch_size, -1).numpy()
                 model_choices = np.array([np.random.choice(h_choice, size=len(p), replace=False, p=p)[::-1] for h_choice, p in zip(human_choices, probas)])
                 sampled_choices[j*batch_size:(j+1)*batch_size] += model_choices
             else:
-                val_loss = trinomial_loss(anchor, positive, negative, task, temperature)
-                val_acc = choice_accuracy(anchor, positive, negative, task)
+                val_loss = trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature)
+                val_acc = choice_accuracy(hyperbolic, anchor, positive, negative, task)
 
             batch_losses_val[j] += val_loss.item()
             batch_accs_val[j] += val_acc

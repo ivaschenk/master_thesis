@@ -25,6 +25,8 @@ from collections import defaultdict
 from scipy.stats import linregress
 from torch.optim import Adam, AdamW
 
+import geoopt
+
 # from plotting import *
 from models.model import *
 
@@ -76,9 +78,11 @@ def parseargs():
         choices=['cpu', 'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3', 'cuda:4', 'cuda:5', 'cuda:6', 'cuda:7'])
     aa('--rnd_seed', type=int, default=42,
         help='random seed for reproducibility')
-    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean'], help='distance metric') #TODO!!!! Euclidean space -> hyperbolic space
+    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean', 'hyperbolic'], help='distance metric') #TODO!!!! Euclidean space -> hyperbolic space
     aa('--early_stopping', action='store_true', help='train until convergence')
     aa('--num_threads', type=int, default=20, help='number of threads used by PyTorch multiprocessing')
+    aa('--k', type=float, default=-1.,                
+        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space. k < 0 hyperbolic (poincareball), k = 0 Euclidean, k > 0 Stereographic')
     args = parser.parse_args()
     return args
 
@@ -122,7 +126,8 @@ def run(
         show_progress:bool=True,
         distance_metric:str='dot',
         temperature:float=1.,
-        early_stopping:bool=False
+        early_stopping:bool=False,
+        k:float=-1.
 ):
     #initialise logger and start logging events
     logger = setup_logging(file='spose_optimization.log', dir=f'./log_files/lmbda_{lmbda}/')
@@ -150,6 +155,10 @@ def run(
     model = SPoSE(in_size=n_items, out_size=embed_dim, init_weights=True)
     model.to(device)
     optim = Adam(model.parameters(), lr=lr)
+    if distance_metric == 'hyperbolic':
+        optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
+
+    hyperbolic = geoopt.Stereographic(k=k)
 
     ################################################
     ############# Creating PATHs ###################
@@ -232,8 +241,10 @@ def run(
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
             logits = model(batch)
+            if distance_metric == 'hyperbolic':
+                logits = hyperbolic.projx(logits)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
-            c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric) #TODO
+            c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric, hyperbolic) #TODO
             # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc.weight
             pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
@@ -261,7 +272,7 @@ def run(
         ################ validation ####################
         ################################################
 
-        avg_val_loss, avg_val_acc = utils.validation(model=model, val_batches=val_batches, task=task, device=device, distance_metric=distance_metric)
+        avg_val_loss, avg_val_acc = utils.validation(hyperbolic=hyperbolic, model=model, val_batches=val_batches, task=task, device=device, distance_metric=distance_metric)
 
         val_losses.append(avg_val_loss)
         val_accs.append(avg_val_acc)
