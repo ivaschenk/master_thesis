@@ -13,6 +13,8 @@ import numpy as np
 from utils import BatchGenerator, load_data, load_model, validation
 from models.model import SPoSE, VSPoSE
 
+import geoopt
+
 os.environ['PYTHONIOENCODING']='UTF-8'
 
 def parseargs():
@@ -44,7 +46,9 @@ def parseargs():
         choices=['cpu', 'cuda', 'cuda:0', 'cuda:1'])
     aa('--rnd_seed', type=int, default=42,
         help='random seed for reproducibility')
-    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean'], help='distance metric')
+    aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean', 'hyperbolic'], help='distance metric')
+    aa('--k', type=float, default=-1.,                
+        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space. k < 0 hyperbolic (poincareball), k = 0 Euclidean, k > 0 Stereographic')
     args = parser.parse_args()
     return args
 
@@ -60,7 +64,8 @@ def run(
         embed_dim:int,
         rnd_seed:int,
         device:torch.device,
-        distance_metric:str
+        distance_metric:str,
+        k:float=-1.
 ) -> None:
     #load train triplets
     train_triplets, _ = load_data(device=device, triplets_dir=os.path.join(triplets_dir, modality))
@@ -70,6 +75,8 @@ def run(
     I = torch.eye(n_items)
     #get mini-batches for training to sample an equally sized synthetic dataset
     train_batches = BatchGenerator(I=I, dataset=train_triplets, batch_size=batch_size, sampling_method=None, p=None)
+    # set stereographic manifold with curvature k
+    hyperbolic = geoopt.Stereographic(k=k)
     #initialise model
     for i in range(n_samples):
         if version == 'variational':
@@ -91,6 +98,7 @@ def run(
         model.to(device)
         #probabilistically sample triplet choices given model ouput PMFs
         sampled_choices = validation(
+                                    hyperbolic=hyperbolic,
                                     model=model,
                                     val_batches=train_batches,
                                     version=version,
