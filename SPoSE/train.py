@@ -244,7 +244,7 @@ def run(
             if distance_metric == 'hyperbolic':
                 logits = hyperbolic.projx(logits)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
-            c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric, hyperbolic) #TODO
+            c_entropy = utils.trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature, distance_metric) #TODO
             # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc.weight
             pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
@@ -255,7 +255,7 @@ def run(
             batch_losses_train[i] += loss.item()
             batch_llikelihoods[i] += c_entropy.item()
             # batch_closses[i] += complexity_loss.item()
-            batch_accs_train[i] += utils.choice_accuracy(anchor, positive, negative, task, distance_metric)
+            batch_accs_train[i] += utils.choice_accuracy(hyperbolic, anchor, positive, negative, task, distance_metric)
             iter += 1
 
         avg_llikelihood = torch.mean(batch_llikelihoods).item()
