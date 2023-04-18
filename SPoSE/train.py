@@ -240,9 +240,9 @@ def run(
         for i, batch in enumerate(train_batches):
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
-            logits = model(batch)
             if distance_metric == 'hyperbolic':
-                logits = hyperbolic.projx(logits)
+                batch = hyperbolic.projx(batch)
+            logits = model(batch)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
             c_entropy = utils.trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature, distance_metric) #TODO
             # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
