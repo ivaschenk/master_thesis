@@ -442,6 +442,8 @@ def test(
                 test_acc, _, batch_probas = mc_sampling(model=model, batch=batch, temperature=temperature, task=task, n_samples=n_samples, device=device)
             else:
                 logits = model(batch)
+                if distance_metric == 'hyperbolic':
+                    logits = hyperbolic.projx(logits)
                 anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
                 similarities = compute_similarities(hyperbolic, anchor, positive, negative, task, distance_metric) #TODO
                 #stacked_sims = torch.stack(similarities, dim=-1)
