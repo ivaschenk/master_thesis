@@ -81,8 +81,8 @@ def parseargs():
     aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean', 'hyperbolic'], help='distance metric') #TODO!!!! Euclidean space -> hyperbolic space
     aa('--early_stopping', action='store_true', help='train until convergence')
     aa('--num_threads', type=int, default=20, help='number of threads used by PyTorch multiprocessing')
-    aa('--k', type=float, default=-1.,                
-        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space. k < 0 hyperbolic (poincareball), k = 0 Euclidean, k > 0 Stereographic')
+    aa('--c', type=float, default=1.,                
+        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space.')
     args = parser.parse_args()
     return args
 
@@ -127,7 +127,7 @@ def run(
         distance_metric:str='dot',
         temperature:float=1.,
         early_stopping:bool=False,
-        k:float=-1.
+        c:float=1.
 ):
     #initialise logger and start logging events
     logger = setup_logging(file='spose_optimization.log', dir=f'./log_files/lmbda_{lmbda}/')
@@ -158,7 +158,7 @@ def run(
     if distance_metric == 'hyperbolic':
         optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
 
-    hyperbolic = geoopt.Stereographic(k=k)
+    hyperbolic = geoopt.PoincareBallExact(c=c)
 
     ################################################
     ############# Creating PATHs ###################
@@ -240,9 +240,9 @@ def run(
         for i, batch in enumerate(train_batches):
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
-            if distance_metric == 'hyperbolic':
-                batch = hyperbolic.projx(batch)
             logits = model(batch)
+            if distance_metric == 'hyperbolic':
+                logits = hyperbolic.expmap0(logits)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
             c_entropy = utils.trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature, distance_metric) #TODO
             # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)

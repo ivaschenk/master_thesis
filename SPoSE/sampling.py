@@ -47,8 +47,8 @@ def parseargs():
     aa('--rnd_seed', type=int, default=42,
         help='random seed for reproducibility')
     aa('--distance_metric', type=str, default='dot', choices=['dot', 'euclidean', 'hyperbolic'], help='distance metric')
-    aa('--k', type=float, default=-1.,                
-        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space. k < 0 hyperbolic (poincareball), k = 0 Euclidean, k > 0 Stereographic')
+    aa('--c', type=float, default=-1.,                
+        help='this argument is only necessary when distance metric is hyperbolic. Specifies the curvature of the hyperbolic space. k < 0 hyperbolic (poincareball)')
     args = parser.parse_args()
     return args
 
@@ -65,7 +65,7 @@ def run(
         rnd_seed:int,
         device:torch.device,
         distance_metric:str,
-        k:float=-1.
+        c:float=1.
 ) -> None:
     #load train triplets
     train_triplets, _ = load_data(device=device, triplets_dir=os.path.join(triplets_dir, modality))
@@ -76,7 +76,7 @@ def run(
     #get mini-batches for training to sample an equally sized synthetic dataset
     train_batches = BatchGenerator(I=I, dataset=train_triplets, batch_size=batch_size, sampling_method=None, p=None)
     # set stereographic manifold with curvature k
-    hyperbolic = geoopt.Stereographic(k=k)
+    hyperbolic = geoopt.PoincareBallExact(c=c)
     #initialise model
     for i in range(n_samples):
         if version == 'variational':

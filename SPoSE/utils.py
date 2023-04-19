@@ -252,11 +252,11 @@ def compute_similarities(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor,
         else:
             return pos_sim, neg_sim
     elif distance_metric == 'hyperbolic':
-        pos_sim = -1*hyperbolic.dist(anchor, positive)
-        neg_sim = -1*hyperbolic.dist(anchor, negative)
+        pos_sim = -1*hyperbolic.dist(anchor[:, None, :], positive)
+        neg_sim = -1*hyperbolic.dist(anchor[:, None, :], negative)
         
         if method == 'odd_one_out':
-            neg_sim_2 = -1*hyperbolic.dist(positive,negative)
+            neg_sim_2 = -1*hyperbolic.dist(positive[:, None, :],negative)
             return pos_sim, neg_sim, neg_sim_2
         else:
             return pos_sim, neg_sim
@@ -437,13 +437,13 @@ def test(
         batch_accs = torch.zeros(len(test_batches))
         for j, batch in enumerate(test_batches):
             batch = batch.to(device)
-            if distance_metric == 'hyperbolic':
-                batch = hyperbolic.projx(batch)
             if version == 'variational':
                 assert isinstance(n_samples, int), '\nOutput logits of variational neural networks have to be averaged over different samples through mc sampling.\n'
                 test_acc, _, batch_probas = mc_sampling(model=model, batch=batch, temperature=temperature, task=task, n_samples=n_samples, device=device)
             else:
                 logits = model(batch)
+                if distance_metric == 'hyperbolic':
+                    logits = hyperbolic.expmap0(logits)
                 anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
                 similarities = compute_similarities(hyperbolic, anchor, positive, negative, task, distance_metric) #TODO
                 #stacked_sims = torch.stack(similarities, dim=-1)
@@ -483,9 +483,9 @@ def validation(
         batch_accs_val = torch.zeros(len(val_batches))
         for j, batch in enumerate(val_batches):
             batch = batch.to(device)
-            if distance_metric == 'hyperbolic':
-                batch = hyperbolic.projx(batch)
             logits = model(batch)
+            if distance_metric == 'hyperbolic':
+                logits = hyperbolic.expmap0(logits)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, logits.shape[-1])), dim=1)
 
             if sampling:
