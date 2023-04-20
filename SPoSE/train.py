@@ -382,5 +382,6 @@ if __name__ == "__main__":
         p=args.p,
         distance_metric=args.distance_metric,
         temperature=args.temperature,
-        early_stopping=args.early_stopping
+        early_stopping=args.early_stopping,
+        c=args.c
         )
