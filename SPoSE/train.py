@@ -130,7 +130,7 @@ def run(
         c:float=1.
 ):
     #initialise logger and start logging events
-    logger = setup_logging(file='spose_optimization.log', dir=f'./log_files/lmbda_{lmbda}/')
+    logger = setup_logging(file='spose_optimization.log', dir=f'./log_files/lr_{lr}_t_{temperature}_curv_{c}/')
     logger.setLevel(logging.INFO)
     #load triplets into memory
     train_triplets, test_triplets = utils.load_data(device=device, triplets_dir=triplets_dir)
@@ -156,7 +156,7 @@ def run(
     model.to(device)
     optim = Adam(model.parameters(), lr=lr)
     if distance_metric == 'hyperbolic':
-        optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
+        optim = geoopt.optim.RiemannianSGD(model.parameters(), lr=lr)
 
     hyperbolic = geoopt.PoincareBallExact(c=c)
 
@@ -167,12 +167,12 @@ def run(
     print(f'...Creating PATHs')
     print()
     if results_dir == './results/':
-        results_dir = os.path.join(results_dir, modality, f'{embed_dim}d', str(lmbda), f'seed{rnd_seed:02d}')
+        results_dir = os.path.join(results_dir, modality, f'{embed_dim}d', str(lr), str(temperature), str(c), f'seed{rnd_seed:02d}')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     if plots_dir == './plots/':
-        plots_dir = os.path.join(plots_dir, modality, f'{embed_dim}d', str(lmbda), f'seed{rnd_seed}')
+        plots_dir = os.path.join(plots_dir, modality, f'{embed_dim}d', str(lr), str(temperature), str(c), f'seed{rnd_seed}')
     if not os.path.exists(plots_dir):
         os.makedirs(plots_dir)
 
@@ -228,9 +228,9 @@ def run(
 
     iter = 0
     results = {}
-    logger.info(f'Optimization started for lambda: {lmbda}\n')
+    logger.info(f'Optimization started for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
 
-    print(f'Optimization started for lambda: {lmbda}\n')
+    print(f'Optimization started for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
     for epoch in range(start, epochs):
         model.train()
         batch_llikelihoods = torch.zeros(len(train_batches))
@@ -325,7 +325,7 @@ def run(
     #save final model weights
     utils.save_weights_(results_dir, model.fc.weight)
     results = {'epoch': len(train_accs), 'train_acc': train_accs[-1], 'val_acc': val_accs[-1], 'val_loss': val_losses[-1]}
-    logger.info(f'\nOptimization finished after {epoch+1} epochs for lambda: {lmbda}\n')
+    logger.info(f'\nOptimization finished after {epoch+1} epochs for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
 
     # logger.info(f'\nPlotting number of non-negative dimensions as a function of time for lambda: {lmbda}\n')
     # plot_nneg_dims_over_time(plots_dir=plots_dir, nneg_d_over_time=nneg_d_over_time)
