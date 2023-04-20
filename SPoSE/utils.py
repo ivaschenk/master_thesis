@@ -252,11 +252,11 @@ def compute_similarities(hyperbolic, anchor:torch.Tensor, positive:torch.Tensor,
         else:
             return pos_sim, neg_sim
     elif distance_metric == 'hyperbolic':
-        pos_sim = -1*hyperbolic.dist(anchor[:, None, :], positive)
-        neg_sim = -1*hyperbolic.dist(anchor[:, None, :], negative)
+        pos_sim = -1*hyperbolic.dist(anchor, positive)
+        neg_sim = -1*hyperbolic.dist(anchor, negative)
         
         if method == 'odd_one_out':
-            neg_sim_2 = -1*hyperbolic.dist(positive[:, None, :],negative)
+            neg_sim_2 = -1*hyperbolic.dist(positive,negative)
             return pos_sim, neg_sim, neg_sim_2
         else:
             return pos_sim, neg_sim
