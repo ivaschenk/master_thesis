@@ -156,7 +156,7 @@ def run(
     model.to(device)
     optim = Adam(model.parameters(), lr=lr)
     if distance_metric == 'hyperbolic':
-        optim = geoopt.optim.RiemannianSGD(model.parameters(), lr=lr)
+        optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
 
     hyperbolic = geoopt.PoincareBallExact(c=c)
 
