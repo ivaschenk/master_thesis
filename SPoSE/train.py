@@ -229,7 +229,6 @@ def run(
     iter = 0
     results = {}
     logger.info(f'Optimization started for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
-
     print(f'Optimization started for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
     for epoch in range(start, epochs):
         model.train()
@@ -237,6 +236,10 @@ def run(
         # batch_closses = torch.zeros(len(train_batches))
         batch_losses_train = torch.zeros(len(train_batches))
         batch_accs_train = torch.zeros(len(train_batches))
+        if epoch != 0:
+            lr = lr/1.1
+            optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
+
         for i, batch in enumerate(train_batches):
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
