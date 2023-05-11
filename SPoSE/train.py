@@ -239,7 +239,7 @@ def run(
         if epoch != 0:
             lr = lr/1.1
             optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
-
+            print('lr is', lr)
         for i, batch in enumerate(train_batches):
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
