@@ -52,7 +52,7 @@ def parseargs():
     aa('--learning_rate', type=float, default=0.001,    #hyperparameter TODO
         help='learning rate to be used in optimizer')
     aa('--lmbda', type=float,                           #hyperparameter niet relevant want l1 verwijderen
-        help='lambda value determines weight of l1-regularization')
+        help='lambda value determines weight of uniformity constrain')
     aa('--temperature', type=float, default=1.,         #? TODO
         help='softmax temperature (beta param) for choice randomness')
     aa('--embed_dim', metavar='D', type=int, default=90, #hyperparameter TODO probably lower
@@ -200,14 +200,14 @@ def run(
                     val_losses = checkpoint['val_losses']
                     nneg_d_over_time = checkpoint['nneg_d_over_time']
                     loglikelihoods = checkpoint['loglikelihoods']
-                    complexity_losses = checkpoint['complexity_costs']
+                    uniformity_losses = checkpoint['uniformity_costs']
                     print(f'...Loaded model and optimizer state dicts from previous run. Starting at epoch {start}.\n')
                 except RuntimeError:
                     print(f'...Loading model and optimizer state dicts failed. Check whether you are currently using a different set of model parameters.\n')
                     start = 0
                     train_accs, val_accs = [], []
                     train_losses, val_losses = [], []
-                    loglikelihoods, complexity_losses = [], []
+                    loglikelihoods, uniformity_losses = [], []
                     nneg_d_over_time = []
             else:
                 raise Exception('No checkpoints found. Cannot resume training.')
@@ -219,7 +219,7 @@ def run(
         start = 0
         train_accs, val_accs = [], []
         train_losses, val_losses = [], []
-        loglikelihoods, complexity_losses = [], []
+        loglikelihoods, uniformity_losses = [], []
         nneg_d_over_time = []
 
     ################################################
@@ -233,13 +233,13 @@ def run(
     for epoch in range(start, epochs):
         model.train()
         batch_llikelihoods = torch.zeros(len(train_batches))
-        # batch_closses = torch.zeros(len(train_batches))
+        batch_ulosses = torch.zeros(len(train_batches))
         batch_losses_train = torch.zeros(len(train_batches))
         batch_accs_train = torch.zeros(len(train_batches))
-        if epoch != 0:
-            lr = lr/1.1
-            optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
-            print('lr is', lr)
+        # if epoch != 0:
+        #     lr = lr/1.1
+        #     optim = geoopt.optim.RiemannianAdam(model.parameters(), lr=lr)
+        #     print('lr is', lr)
         for i, batch in enumerate(train_batches):
             optim.zero_grad() #zero out gradients
             batch = batch.to(device)
@@ -252,22 +252,26 @@ def run(
             W = model.fc.weight
             #pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
             # complexity_loss = (lmbda/n_items) * l1_pen
-            loss = c_entropy #+ 0.01 * pos_pen #+ complexity_loss
+            dist_matrix = hyperbolic.dist(logits[:, None, :], logits)
+            dist_matrix[range(dist_matrix.size(0)), range(dist_matrix.size(0))] = np.nan
+            uniformity_loss = dist_matrix.exp().nanmean().log()
+            loss = c_entropy + lmbda * uniformity_loss #+ 0.01 * pos_pen #+ complexity_loss
             loss.backward()
             optim.step()
             batch_losses_train[i] += loss.item()
             batch_llikelihoods[i] += c_entropy.item()
-            # batch_closses[i] += complexity_loss.item()
+            batch_ulosses[i] += uniformity_loss.item()
             batch_accs_train[i] += utils.choice_accuracy(hyperbolic, anchor, positive, negative, task, distance_metric)
             iter += 1
 
         avg_llikelihood = torch.mean(batch_llikelihoods).item()
-        # avg_closs = torch.mean(batch_closses).item()
+        avg_uloss = torch.mean(batch_ulosses).item()
+        print('avg uloss = ', avg_uloss)
         avg_train_loss = torch.mean(batch_losses_train).item()
         avg_train_acc = torch.mean(batch_accs_train).item()
 
         loglikelihoods.append(avg_llikelihood)
-        # complexity_losses.append(avg_closs)
+        uniformity_losses.append(avg_uloss)
         train_losses.append(avg_train_loss)
         train_accs.append(avg_train_acc)
 
@@ -314,7 +318,7 @@ def run(
                         'val_accs': val_accs,
                         'nneg_d_over_time': nneg_d_over_time,
                         'loglikelihoods': loglikelihoods,
-                        'complexity_costs': complexity_losses,
+                        'uniformity_costs': uniformity_losses,
                         }, os.path.join(model_dir, f'model_epoch{epoch+1:04d}.tar'))
 
             logger.info(f'Saving model parameters at epoch {epoch+1}\n')
