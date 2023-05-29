@@ -12,7 +12,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class SPoSE(nn.Module):
+# class SPoSE(nn.Module):
 
+#     def __init__(
+#                 self,
+#                 in_size:int,
+#                 out_size:int,
+#                 init_weights:bool=True,
+#                 ):
+#         super(SPoSE, self).__init__()
+#         self.in_size = in_size
+#         self.out_size = out_size
+#         self.hidden_size = 618
+#         self.fc1 = nn.Linear(self.in_size, self.hidden_size, bias=False)
+#         self.fc2 = nn.Linear(self.hidden_size, self.out_size, bias=False)
+
+#         if init_weights:
+#             self._initialize_weights()
+
+#     def forward(self, x:torch.Tensor) -> torch.Tensor:
+#         x = F.relu(self.fc1(x))
+#         return self.fc2(x)
     def __init__(
                 self,
                 in_size:int,
@@ -22,13 +42,16 @@ class SPoSE(nn.Module):
         super(SPoSE, self).__init__()
         self.in_size = in_size
         self.out_size = out_size
-        self.fc = nn.Linear(self.in_size, self.out_size, bias=False)
+        self.hidden_size = 928 # in + out / 2
+        self.fc1 = nn.Linear(self.in_size, self.hidden_size, bias=False)
+        self.fc2 = nn.Linear(self.hidden_size, self.out_size, bias=False)
 
         if init_weights:
             self._initialize_weights()
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
-        return self.fc(x)
+        x = F.relu(self.fc1(x))
+        return self.fc2(x)
 
     def _initialize_weights(self) -> None:
         mean, std = .1, .01

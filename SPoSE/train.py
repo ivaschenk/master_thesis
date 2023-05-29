@@ -249,7 +249,7 @@ def run(
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
             c_entropy = utils.trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature, distance_metric) #TODO
             # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
-            W = model.fc.weight
+            W = model.fc1.weight
             #pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
             # complexity_loss = (lmbda/n_items) * l1_pen
             dist_matrix = hyperbolic.dist(logits[:, None, :], logits)
@@ -301,7 +301,7 @@ def run(
             # print("========================================================================================================\n")
 
         if (epoch + 1) % steps == 0:
-            W = model.fc.weight
+            W = model.fc1.weight
             np.savetxt(os.path.join(results_dir, f'sparse_embed_epoch{epoch+1:04d}.txt'), W.detach().cpu().numpy())
             logger.info(f'Saving model weights at epoch {epoch+1}')
 
@@ -330,7 +330,7 @@ def run(
                 break
 
     #save final model weights
-    utils.save_weights_(results_dir, model.fc.weight)
+    utils.save_weights_(results_dir, model.fc1.weight)
     results = {'epoch': len(train_accs), 'train_acc': train_accs[-1], 'val_acc': val_accs[-1], 'val_loss': val_losses[-1]}
     logger.info(f'\nOptimization finished after {epoch+1} epochs for lr: {lr}, temperature: {temperature}, curvature: {c}\n')
 

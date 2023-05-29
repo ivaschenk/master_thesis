@@ -589,7 +589,7 @@ def load_weights(model, version:str) -> Tuple[torch.Tensor]:
         W_b = F.softplus(W_b)
         return W_mu, W_b
     else:
-        return model.fc.weight.T.detach()
+        return model.fc1.weight.T.detach()
 
 def prune_weights(model, version:str, indices:torch.Tensor, fraction:float):
     indices = indices[:int(len(indices)*fraction)]
