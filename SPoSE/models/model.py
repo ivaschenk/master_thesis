@@ -3,7 +3,7 @@
 
 __all__ = [
             'SPoSE',
-            # 'l1_regularization',
+            'l1_regularization',
             ]
 
 import re
