@@ -51,6 +51,7 @@ class SPoSE(nn.Module):
 
     def forward(self, x:torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
+        # x = F.dropout(x, 0.2)
         return self.fc2(x)
 
     def _initialize_weights(self) -> None:
@@ -59,9 +60,13 @@ class SPoSE(nn.Module):
             if isinstance(m, nn.Linear):
                 m.weight.data.normal_(mean, std)
 
-# def l1_regularization(model) -> torch.Tensor:
-#     l1_reg = torch.tensor(0., requires_grad=True)
-#     for n, p in model.named_parameters():
-#         if re.search(r'weight', n):
-#             l1_reg = l1_reg + torch.norm(p, 1)
-#     return l1_reg
+        # nn.init.kaiming_normal_(self.fc1.weight, mode='fan_in', nonlinearity='relu')
+        # nn.init.xavier_normal_(self.fc2.weight)
+
+
+def l1_regularization(model) -> torch.Tensor:
+    l1_reg = torch.tensor(0., requires_grad=True)
+    for n, p in model.named_parameters():
+        if re.search(r'weight', n):
+            l1_reg = l1_reg + torch.norm(p, 1)
+    return l1_reg

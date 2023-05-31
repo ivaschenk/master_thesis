@@ -248,14 +248,14 @@ def run(
                 logits = hyperbolic.expmap0(logits)
             anchor, positive, negative = torch.unbind(torch.reshape(logits, (-1, 3, embed_dim)), dim=1)
             c_entropy = utils.trinomial_loss(hyperbolic, anchor, positive, negative, task, temperature, distance_metric) #TODO
-            # l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
+            l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc1.weight
             #pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
-            # complexity_loss = (lmbda/n_items) * l1_pen
+            complexity_loss = (0.008/n_items) * l1_pen #0.008 = lambda
             dist_matrix = hyperbolic.dist(logits[:, None, :], logits)
             dist_matrix[range(dist_matrix.size(0)), range(dist_matrix.size(0))] = np.nan
             uniformity_loss = dist_matrix.exp().nanmean().log()
-            loss = c_entropy + lmbda * uniformity_loss #+ 0.01 * pos_pen #+ complexity_loss
+            loss = c_entropy + lmbda * uniformity_loss + complexity_loss #+ 0.01 * pos_pen
             loss.backward()
             optim.step()
             batch_losses_train[i] += loss.item()
