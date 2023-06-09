@@ -235,9 +235,9 @@ def run(
             c_entropy = utils.trinomial_loss(anchor, positive, negative, task, temperature, distance_metric)
             l1_pen = l1_regularization(model).to(device) #L1-norm to enforce sparsity (many 0s)
             W = model.fc.weight
-            pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
+            # pos_pen = torch.sum(F.relu(-W)) #positivity constraint to enforce non-negative values in embedding matrix
             complexity_loss = (lmbda/n_items) * l1_pen
-            loss = c_entropy + 0.01 * pos_pen + complexity_loss
+            loss = c_entropy + complexity_loss #+ 0.01 * pos_pen 
             loss.backward()
             optim.step()
             batch_losses_train[i] += loss.item()
